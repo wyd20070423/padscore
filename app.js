@@ -38,6 +38,7 @@ const els = {
 };
 
 let db;
+let dbAvailable = false;
 let data = {
   folders: [{ id: ROOT_ID, name: "未整理", parentId: null, createdAt: Date.now() }],
   scores: [],
@@ -58,6 +59,7 @@ let renderRunId = 0;
 let preloadRunId = 0;
 
 function openDb() {
+  if (!("indexedDB" in window)) return Promise.resolve(null);
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
@@ -67,10 +69,12 @@ function openDb() {
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
+    setTimeout(() => reject(new Error("IndexedDB 初始化超时")), 6000);
   });
 }
 
 function tx(storeName, mode = "readonly") {
+  if (!db) throw new Error("这个浏览器没有可用的本地数据库");
   return db.transaction(storeName, mode).objectStore(storeName);
 }
 
@@ -107,16 +111,26 @@ function idbClear(storeName) {
 }
 
 async function load() {
-  db = await openDb();
+  try {
+    db = await openDb();
+    dbAvailable = Boolean(db);
+  } catch (error) {
+    console.warn(error);
+    db = null;
+    dbAvailable = false;
+  }
   const params = new URLSearchParams(location.search);
-  if (params.get("reset") === "1" && confirm("清空这个 iPad 浏览器里的谱库数据？")) {
-    await idbClear("meta");
-    await idbClear("files");
+  if (params.get("reset") === "1" && confirm("清空这个浏览器里的谱库数据？")) {
+    if (dbAvailable) {
+      await idbClear("meta");
+      await idbClear("files");
+    }
+    localStorage.removeItem(`${DB_NAME}:library`);
     location.href = location.pathname;
     return;
   }
 
-  const stored = await idbGet("meta", "library");
+  const stored = dbAvailable ? await idbGet("meta", "library") : loadLocalMeta();
   if (stored) data = stored;
   data.folders ||= [];
   data.scores ||= [];
@@ -134,11 +148,29 @@ async function load() {
 
 async function save() {
   data.updatedAt = Date.now();
-  await idbPut("meta", data, "library");
+  if (dbAvailable) await idbPut("meta", data, "library");
+  else saveLocalMeta();
   updateStorageStatus();
 }
 
+function loadLocalMeta() {
+  try {
+    const raw = localStorage.getItem(`${DB_NAME}:library`);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveLocalMeta() {
+  localStorage.setItem(`${DB_NAME}:library`, JSON.stringify(data));
+}
+
 async function updateStorageStatus() {
+  if (!dbAvailable) {
+    els.storageStatus.textContent = "本地数据库不可用";
+    return;
+  }
   if (!navigator.storage?.estimate) return;
   const estimate = await navigator.storage.estimate();
   const used = estimate.usage ? (estimate.usage / 1024 / 1024).toFixed(0) : "0";
@@ -353,6 +385,10 @@ function isImage(file) {
 }
 
 async function importFiles(fileList, folderId = selectedFolder().id) {
+  if (!dbAvailable) {
+    alert("这个浏览器没有可用的本地数据库，不能保存谱子。请用 iPad Safari 打开，或检查 Safari 是否允许网站数据。");
+    return;
+  }
   const files = [...fileList].filter((file) => isPdf(file) || isImage(file));
   if (!files.length) return;
   const failures = [];
@@ -484,6 +520,7 @@ async function deleteScore(scoreId) {
 }
 
 async function getFileBlob(fileId) {
+  if (!dbAvailable) throw new Error("这个浏览器没有可用的本地数据库");
   const blob = await idbGet("files", fileId);
   if (!blob) throw new Error("文件不存在，请从备份恢复。");
   return blob;
@@ -784,6 +821,10 @@ async function exportBackup() {
 }
 
 async function restoreBackup(file) {
+  if (!dbAvailable) {
+    alert("这个浏览器没有可用的本地数据库，不能恢复谱子文件。请用 iPad Safari 打开。");
+    return;
+  }
   if (!confirm("恢复备份会覆盖当前本地谱库。继续吗？")) return;
   const zip = await JSZip.loadAsync(file);
   const libraryFile = zip.file("library.json");
