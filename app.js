@@ -845,22 +845,69 @@ async function restoreBackup(file) {
     alert("这个浏览器没有可用的本地数据库，不能恢复谱子文件。请用 iPad Safari 打开。");
     return;
   }
-  if (!confirm("恢复备份会覆盖当前本地谱库。继续吗？")) return;
-  const zip = await JSZip.loadAsync(file);
-  const libraryFile = zip.file("library.json");
-  if (!libraryFile) return alert("这个备份包里没有 library.json。");
-  const nextData = JSON.parse(await libraryFile.async("string"));
-  await idbClear("files");
-  for (const entry of Object.values(zip.files).filter((item) => item.name.startsWith("files/") && !item.dir)) {
-    await idbPut("files", await entry.async("blob"), entry.name.replace("files/", ""));
+  if (!confirm("恢复备份会覆盖当前这个网址里的本地谱库。继续吗？")) return;
+  try {
+    showImportProgress("恢复备份中", "正在读取 zip", 0, 1);
+    const zip = await JSZip.loadAsync(file);
+    const libraryFile = zip.file("library.json");
+    if (!libraryFile) throw new Error("这个备份包里没有 library.json");
+
+    const nextData = normalizeLibrary(JSON.parse(await libraryFile.async("string")));
+    const fileEntries = Object.values(zip.files).filter((item) => item.name.startsWith("files/") && !item.dir);
+    const neededFileIds = new Set(nextData.scores.flatMap((score) => score.pages.map((page) => page.fileId)));
+    const missing = [...neededFileIds].filter((fileId) => !zip.file(`files/${fileId}`));
+    if (missing.length) throw new Error(`备份包缺少 ${missing.length} 个谱子文件`);
+
+    showImportProgress("恢复备份中", "清理旧数据", 0, fileEntries.length || 1);
+    await idbClear("files");
+    for (const [index, entry] of fileEntries.entries()) {
+      const fileId = entry.name.replace("files/", "");
+      showImportProgress("恢复备份中", `正在恢复 ${index + 1} / ${fileEntries.length}`, index, fileEntries.length);
+      await idbPut("files", await entry.async("blob"), fileId);
+    }
+
+    data = nextData;
+    pdfCache.clear();
+    pageCanvasCache.clear();
+    pageRenderJobs.clear();
+    for (const url of urlCache.values()) URL.revokeObjectURL(url);
+    urlCache.clear();
+    await save();
+    render();
+    showImportProgress("恢复完成", `恢复了 ${data.folders.length} 个目录、${data.scores.length} 首谱子`, fileEntries.length, fileEntries.length || 1);
+    setTimeout(hideImportProgress, 2400);
+    alert(`恢复完成：${data.folders.length} 个目录，${data.scores.length} 首谱子。`);
+  } catch (error) {
+    console.error(error);
+    hideImportProgress();
+    alert(`恢复失败：${error.message}`);
   }
-  data = nextData;
-  pdfCache.clear();
-  pageCanvasCache.clear();
-  for (const url of urlCache.values()) URL.revokeObjectURL(url);
-  urlCache.clear();
-  await save();
-  render();
+}
+
+function normalizeLibrary(nextData) {
+  nextData ||= {};
+  nextData.folders = Array.isArray(nextData.folders) ? nextData.folders : [];
+  nextData.scores = Array.isArray(nextData.scores) ? nextData.scores : [];
+  nextData.settings ||= {};
+  if (!nextData.folders.some((folder) => folder.id === ROOT_ID)) {
+    nextData.folders.unshift({ id: ROOT_ID, name: "未整理", parentId: null, createdAt: Date.now() });
+  }
+  for (const folder of nextData.folders) {
+    folder.name ||= "未命名目录";
+    if (folder.id === ROOT_ID) folder.parentId = null;
+  }
+  nextData.scores = nextData.scores.filter((score) => Array.isArray(score.pages) && score.pages.length);
+  for (const score of nextData.scores) {
+    score.title ||= score.sourceName || "未命名谱子";
+    score.folderId ||= ROOT_ID;
+    if (!nextData.folders.some((folder) => folder.id === score.folderId)) score.folderId = ROOT_ID;
+  }
+  nextData.settings.selectedFolderId = ROOT_ID;
+  nextData.settings.fit ||= "auto";
+  nextData.settings.thumbnails = false;
+  nextData.settings.expandedFolderIds = nextData.folders.map((folder) => folder.id);
+  delete nextData.annotations;
+  return nextData;
 }
 
 function bindEvents() {

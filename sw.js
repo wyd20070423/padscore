@@ -1,4 +1,4 @@
-const CACHE = "ipad-score-library-v11";
+const CACHE = "ipad-score-library-v12";
 const ASSETS = [
   "./",
   "./index.html",
