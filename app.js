@@ -330,9 +330,9 @@ function renderLibrary() {
       <strong></strong>
       <span class="meta">${score.pages.length} 页 · ${scoreLocation(score)}</span>
       <div class="card-actions">
-        <button class="open" type="button">鎵撳紑</button>
-        <button class="move subtle" type="button">绉诲姩</button>
-        <button class="rename subtle" type="button">鏀瑰悕</button>
+        <button class="open" type="button">打开</button>
+        <button class="move subtle" type="button">移动</button>
+        <button class="rename subtle" type="button">改名</button>
         <button class="remove danger subtle" type="button">删除</button>
       </div>`;
     card.querySelector("strong").textContent = score.title;
@@ -800,8 +800,8 @@ async function renderOrganizer() {
       <div class="preview">加载中</div>
       <footer>
         <span>第 ${index + 1} 页</span>
-        <button class="up subtle" type="button">鍓嶇Щ</button>
-        <button class="down subtle" type="button">鍚庣Щ</button>
+        <button class="up subtle" type="button">前移</button>
+        <button class="down subtle" type="button">后移</button>
         <button class="delete danger subtle" type="button">删除</button>
       </footer>`;
     card.querySelector(".up").disabled = index === 0;
