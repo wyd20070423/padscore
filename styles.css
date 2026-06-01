@@ -553,6 +553,26 @@ dialog menu {
   margin: 16px 0 0;
 }
 
+.backup-download {
+  position: fixed;
+  left: 50%;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  z-index: 30;
+  transform: translateX(-50%);
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+  border: 1px solid #ef91bd;
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--accent-strong);
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: var(--shadow);
+}
+
 .mobile-only {
   display: none;
 }

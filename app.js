@@ -848,17 +848,61 @@ async function movePage(from, to) {
 }
 
 async function exportBackup() {
-  const Zip = await ensureZipLib();
-  const zip = new Zip();
-  zip.file("library.json", JSON.stringify(data, null, 2));
-  const fileIds = [...new Set(data.scores.flatMap((score) => score.pages.map((page) => page.fileId)))];
-  for (const fileId of fileIds) zip.file(`files/${fileId}`, await getFileBlob(fileId));
-  const blob = await zip.generateAsync({ type: "blob" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = `score-library-backup-${new Date().toISOString().slice(0, 10)}.zip`;
+  if (!dbAvailable) {
+    alert("这个浏览器没有可用的本地数据库，不能导出谱子文件。请用主屏幕 App 或 iPad Safari 打开。");
+    return;
+  }
+  try {
+    const Zip = await ensureZipLib();
+    const zip = new Zip();
+    zip.file("library.json", JSON.stringify(data, null, 2));
+    const fileIds = [...new Set(data.scores.flatMap((score) => score.pages.map((page) => page.fileId)))];
+    showImportProgress("正在打包备份", `准备 ${fileIds.length} 个谱子文件`, 0, fileIds.length || 1);
+    for (const [index, fileId] of fileIds.entries()) {
+      showImportProgress("正在打包备份", `写入 ${index + 1} / ${fileIds.length}`, index, fileIds.length || 1);
+      zip.file(`files/${fileId}`, await getFileBlob(fileId));
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
+    const fileName = `score-library-backup-${new Date().toISOString().slice(0, 10)}.zip`;
+    showImportProgress("备份已生成", "请选择保存位置", 1, 1);
+    await offerBackupDownload(blob, fileName);
+    setTimeout(hideImportProgress, 2400);
+  } catch (error) {
+    console.error(error);
+    hideImportProgress();
+    alert(`导出备份失败：${error.message}`);
+  }
+}
+
+async function offerBackupDownload(blob, fileName) {
+  const file = new File([blob], fileName, { type: "application/zip" });
+  if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+    try {
+      await navigator.share({ files: [file], title: "谱库备份" });
+      return;
+    } catch (error) {
+      if (error.name !== "AbortError") console.warn(error);
+    }
+  }
+
+  const url = URL.createObjectURL(blob);
+  let link = document.getElementById("backupDownloadLink");
+  if (!link) {
+    link = document.createElement("a");
+    link.id = "backupDownloadLink";
+    link.className = "backup-download";
+    link.textContent = "点这里保存备份 ZIP";
+    document.body.append(link);
+  }
+  link.href = url;
+  link.download = fileName;
+  link.hidden = false;
+  link.onclick = () => setTimeout(() => {
+    URL.revokeObjectURL(url);
+    link.hidden = true;
+  }, 30000);
   link.click();
-  URL.revokeObjectURL(link.href);
+  alert("如果没有弹出保存窗口，请点屏幕下方的“点这里保存备份 ZIP”。");
 }
 
 async function restoreBackup(file) {
