@@ -62,6 +62,26 @@ async function ensurePdfLib() {
   return pdfjsLib;
 }
 
+async function ensureZipLib() {
+  if (window.JSZip) return window.JSZip;
+  await new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-lib="jszip"]');
+    if (existing) {
+      existing.addEventListener("load", resolve, { once: true });
+      existing.addEventListener("error", () => reject(new Error("JSZip 加载失败")), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "./vendor/jszip.min.js?v=13";
+    script.dataset.lib = "jszip";
+    script.onload = resolve;
+    script.onerror = () => reject(new Error("JSZip 加载失败"));
+    document.head.append(script);
+  });
+  if (!window.JSZip) throw new Error("JSZip 没有加载成功");
+  return window.JSZip;
+}
+
 function openDb() {
   if (!("indexedDB" in window)) return Promise.resolve(null);
   return new Promise((resolve, reject) => {
@@ -828,7 +848,8 @@ async function movePage(from, to) {
 }
 
 async function exportBackup() {
-  const zip = new JSZip();
+  const Zip = await ensureZipLib();
+  const zip = new Zip();
   zip.file("library.json", JSON.stringify(data, null, 2));
   const fileIds = [...new Set(data.scores.flatMap((score) => score.pages.map((page) => page.fileId)))];
   for (const fileId of fileIds) zip.file(`files/${fileId}`, await getFileBlob(fileId));
@@ -847,8 +868,9 @@ async function restoreBackup(file) {
   }
   if (!confirm("恢复备份会覆盖当前这个网址里的本地谱库。继续吗？")) return;
   try {
+    const Zip = await ensureZipLib();
     showImportProgress("恢复备份中", "正在读取 zip", 0, 1);
-    const zip = await JSZip.loadAsync(file);
+    const zip = await Zip.loadAsync(file);
     const libraryFile = zip.file("library.json");
     if (!libraryFile) throw new Error("这个备份包里没有 library.json");
 
