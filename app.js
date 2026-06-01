@@ -1,4 +1,4 @@
-const DB_NAME = "ipad-score-library";
+﻿const DB_NAME = "ipad-score-library";
 const DB_VERSION = 1;
 const ROOT_ID = "root";
 const RENDER_DPR = Math.min(window.devicePixelRatio || 1, 2.25);
@@ -54,6 +54,7 @@ const pageRenderJobs = new Map();
 let renderRunId = 0;
 let preloadRunId = 0;
 let pdfjsLib = null;
+let pendingBackup = null;
 
 async function ensurePdfLib() {
   if (pdfjsLib) return pdfjsLib;
@@ -272,7 +273,7 @@ function renderFolders() {
 
   const renderBranch = (parentId, depth) => {
     for (const folder of childFolders(parentId)) {
-      addFolderButton(folder, depth, "୨୧");
+      addFolderButton(folder, depth, "喹ㄠ");
       if (expanded.has(folder.id)) renderBranch(folder.id, depth + 1);
     }
   };
@@ -329,9 +330,9 @@ function renderLibrary() {
       <strong></strong>
       <span class="meta">${score.pages.length} 页 · ${scoreLocation(score)}</span>
       <div class="card-actions">
-        <button class="open" type="button">打开</button>
-        <button class="move subtle" type="button">移动</button>
-        <button class="rename subtle" type="button">改名</button>
+        <button class="open" type="button">鎵撳紑</button>
+        <button class="move subtle" type="button">绉诲姩</button>
+        <button class="rename subtle" type="button">鏀瑰悕</button>
         <button class="remove danger subtle" type="button">删除</button>
       </div>`;
     card.querySelector("strong").textContent = score.title;
@@ -383,7 +384,7 @@ async function addFolder() {
 
 async function renameFolder() {
   const folder = selectedFolder();
-  const name = await promptText("目录改名", folder.name);
+  const name = await promptText("鐩綍鏀瑰悕", folder.name);
   if (!name) return;
   folder.name = name;
   await save();
@@ -538,7 +539,7 @@ async function moveScore(scoreId) {
 
 async function renameScore(scoreId) {
   const score = data.scores.find((item) => item.id === scoreId);
-  const title = await promptText("曲目改名", score.title);
+  const title = await promptText("鏇茬洰鏀瑰悕", score.title);
   if (!title) return;
   score.title = title;
   score.updatedAt = Date.now();
@@ -716,7 +717,7 @@ async function renderViewerPages() {
   const { count, maxWidth, maxHeight } = getRenderBounds();
   const pageRefs = currentBook.pages.slice(currentPage, currentPage + count);
   const first = currentBook.pages[currentPage];
-  els.pageStatus.textContent = `${Math.min(currentPage + 1, currentBook.pages.length)} / ${currentBook.pages.length} · ${first?.title || ""}`;
+  els.pageStatus.textContent = `${Math.min(currentPage + 1, currentBook.pages.length)} / ${currentBook.pages.length} 路 ${first?.title || ""}`;
 
   const shells = [];
   for (const pageRef of pageRefs) {
@@ -799,8 +800,8 @@ async function renderOrganizer() {
       <div class="preview">加载中</div>
       <footer>
         <span>第 ${index + 1} 页</span>
-        <button class="up subtle" type="button">前移</button>
-        <button class="down subtle" type="button">后移</button>
+        <button class="up subtle" type="button">鍓嶇Щ</button>
+        <button class="down subtle" type="button">鍚庣Щ</button>
         <button class="delete danger subtle" type="button">删除</button>
       </footer>`;
     card.querySelector(".up").disabled = index === 0;
@@ -873,8 +874,8 @@ async function exportBackup() {
     };
     const blob = new Blob([JSON.stringify(backup)], { type: "application/json" });
     const fileName = `score-library-backup-${new Date().toISOString().slice(0, 10)}.padscore.json`;
-    showImportProgress("备份已生成", "请选择保存位置", 1, 1);
-    await offerBackupDownload(blob, fileName);
+    showImportProgress("备份已生成", "点粉色按钮保存到文件", 1, 1);
+    offerBackupDownload(blob, fileName);
     setTimeout(hideImportProgress, 2400);
   } catch (error) {
     console.error(error);
@@ -882,7 +883,6 @@ async function exportBackup() {
     alert(`导出备份失败：${error.message}`);
   }
 }
-
 function blobToDataUrl(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -901,37 +901,54 @@ async function dataUrlToBlob(dataUrl) {
   return new Blob([bytes], { type });
 }
 
-async function offerBackupDownload(blob, fileName) {
-  const file = new File([blob], fileName, { type: "application/zip" });
+function offerBackupDownload(blob, fileName) {
+  if (pendingBackup?.url) URL.revokeObjectURL(pendingBackup.url);
+  pendingBackup = {
+    blob,
+    fileName,
+    url: URL.createObjectURL(blob)
+  };
+
+  let button = document.getElementById("backupShareButton");
+  if (!button) {
+    button = document.createElement("button");
+    button.id = "backupShareButton";
+    button.className = "backup-download";
+    button.type = "button";
+    button.addEventListener("click", savePendingBackup);
+    document.body.append(button);
+  }
+  button.textContent = "保存/分享备份";
+  button.hidden = false;
+  alert("备份已经生成。请点屏幕底部的“保存/分享备份”，然后选择“存储到文件”。");
+}
+
+async function savePendingBackup() {
+  if (!pendingBackup) {
+    alert("还没有生成备份。请先点“导出备份”。");
+    return;
+  }
+  const file = new File([pendingBackup.blob], pendingBackup.fileName, { type: "application/json" });
   if (navigator.canShare?.({ files: [file] }) && navigator.share) {
     try {
       await navigator.share({ files: [file], title: "谱库备份" });
+      document.getElementById("backupShareButton").hidden = true;
       return;
     } catch (error) {
-      if (error.name !== "AbortError") console.warn(error);
+      if (error.name === "AbortError") return;
+      console.warn(error);
     }
   }
 
-  const url = URL.createObjectURL(blob);
-  let link = document.getElementById("backupDownloadLink");
-  if (!link) {
-    link = document.createElement("a");
-    link.id = "backupDownloadLink";
-    link.className = "backup-download";
-    link.textContent = "点这里保存备份 ZIP";
-    document.body.append(link);
-  }
-  link.href = url;
-  link.download = fileName;
-  link.hidden = false;
-  link.onclick = () => setTimeout(() => {
-    URL.revokeObjectURL(url);
-    link.hidden = true;
-  }, 30000);
+  const link = document.createElement("a");
+  link.href = pendingBackup.url;
+  link.download = pendingBackup.fileName;
+  link.rel = "noopener";
+  document.body.append(link);
   link.click();
-  alert("如果没有弹出保存窗口，请点屏幕下方的“点这里保存备份 ZIP”。");
+  link.remove();
+  alert("如果仍然打不开，请在 Safari 正常网页里打开同一个地址后再导出；主屏幕模式对下载限制更严格。");
 }
-
 async function restoreBackup(file) {
   if (!dbAvailable) {
     alert("这个浏览器没有可用的本地数据库，不能恢复谱子文件。请用 iPad Safari 打开。");
@@ -1104,3 +1121,4 @@ init().catch((error) => {
   console.error(error);
   alert(`启动失败：${error.message}`);
 });
+
