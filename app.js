@@ -1,7 +1,3 @@
-import * as pdfjsLib from "./vendor/pdf.mjs";
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = "./vendor/pdf.worker.mjs";
-
 const DB_NAME = "ipad-score-library";
 const DB_VERSION = 1;
 const ROOT_ID = "root";
@@ -57,6 +53,14 @@ const pageCanvasCache = new Map();
 const pageRenderJobs = new Map();
 let renderRunId = 0;
 let preloadRunId = 0;
+let pdfjsLib = null;
+
+async function ensurePdfLib() {
+  if (pdfjsLib) return pdfjsLib;
+  pdfjsLib = await import("./vendor/pdf.mjs");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "./vendor/pdf.worker.mjs";
+  return pdfjsLib;
+}
 
 function openDb() {
   if (!("indexedDB" in window)) return Promise.resolve(null);
@@ -438,7 +442,8 @@ async function importFiles(fileList, folderId = selectedFolder().id) {
         };
 
         if (isPdf(file)) {
-          const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+          const pdfLib = await ensurePdfLib();
+          const pdf = await pdfLib.getDocument({ data: await file.arrayBuffer() }).promise;
           for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
             score.pages.push({ pageId: uid(), fileId, type: "pdf", pageNumber, sourceName: file.name });
           }
@@ -528,8 +533,9 @@ async function getFileBlob(fileId) {
 
 async function getPdf(fileId) {
   if (pdfCache.has(fileId)) return pdfCache.get(fileId);
+  const pdfLib = await ensurePdfLib();
   const blob = await getFileBlob(fileId);
-  const pdf = await pdfjsLib.getDocument({ data: await blob.arrayBuffer() }).promise;
+  const pdf = await pdfLib.getDocument({ data: await blob.arrayBuffer() }).promise;
   pdfCache.set(fileId, pdf);
   return pdf;
 }
