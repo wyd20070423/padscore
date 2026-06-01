@@ -197,6 +197,13 @@ function folderScores(folderId) {
     .sort((a, b) => (a.title || "").localeCompare(b.title || "", "zh-CN", { numeric: true }));
 }
 
+function folderScoresDeep(folderId) {
+  const ids = new Set(descendantFolderIds(folderId));
+  return data.scores
+    .filter((score) => ids.has(score.folderId))
+    .sort((a, b) => (a.title || "").localeCompare(b.title || "", "zh-CN", { numeric: true }));
+}
+
 function folderPath(folderId) {
   const path = [];
   let next = data.folders.find((folder) => folder.id === folderId);
@@ -229,7 +236,7 @@ function renderFolders() {
     row.style.paddingLeft = `${8 + depth * 18}px`;
     row.innerHTML = `
       <button class="twisty" type="button" aria-label="${expanded.has(folder.id) ? "折叠" : "展开"}">${children.length ? (expanded.has(folder.id) ? "⌄" : ">") : icon}</button>
-      <button class="folder-name" type="button"><span class="name"></span><span class="count">${folderScores(folder.id).length}</span></button>`;
+      <button class="folder-name" type="button"><span class="name"></span><span class="count">${folderScoresDeep(folder.id).length}</span></button>`;
     row.querySelector(".name").textContent = folder.name;
     row.querySelector(".folder-name").addEventListener("click", () => selectFolder(folder.id));
     row.querySelector(".twisty").addEventListener("click", async (event) => {
@@ -283,7 +290,7 @@ function renderLibrary() {
 
   const visibleScores = query
     ? data.scores.filter((score) => `${score.title} ${score.sourceName}`.toLowerCase().includes(query))
-    : folderScores(folder.id);
+    : folderScoresDeep(folder.id);
 
   els.scoreGrid.innerHTML = "";
   if (!visibleScores.length) {
@@ -300,7 +307,7 @@ function renderLibrary() {
     card.innerHTML = `
       <button class="thumb subtle" type="button">${score.pages?.[0]?.type === "pdf" ? "PDF" : "图片"}</button>
       <strong></strong>
-      <span class="meta">${score.pages.length} 页 · ${score.sourceName || ""}</span>
+      <span class="meta">${score.pages.length} 页 · ${scoreLocation(score)}</span>
       <div class="card-actions">
         <button class="open" type="button">打开</button>
         <button class="move subtle" type="button">移动</button>
@@ -315,6 +322,11 @@ function renderLibrary() {
     card.querySelector(".remove").addEventListener("click", () => deleteScore(score.id));
     els.scoreGrid.append(card);
   }
+}
+
+function scoreLocation(score) {
+  const path = folderPath(score.folderId).map((item) => item.name).join(" / ");
+  return `${path}${score.sourceName ? ` · ${score.sourceName}` : ""}`;
 }
 
 async function selectFolder(folderId) {
@@ -633,15 +645,17 @@ function trimPageCache() {
 
 function buildFolderBook(scoreId) {
   const startScore = data.scores.find((score) => score.id === scoreId);
-  const scores = folderScores(startScore.folderId);
+  const selectedId = data.settings.selectedFolderId || startScore.folderId;
+  const rootFolderId = descendantFolderIds(selectedId).includes(startScore.folderId) ? selectedId : startScore.folderId;
+  const scores = folderScoresDeep(rootFolderId);
   const pages = [];
   for (const score of scores) {
     for (const page of score.pages) pages.push({ ...page, scoreId: score.id, title: score.title });
   }
   const startIndex = Math.max(0, pages.findIndex((page) => page.scoreId === scoreId));
   return {
-    title: `${data.folders.find((folder) => folder.id === startScore.folderId)?.name || "目录"} · 连续翻页`,
-    folderId: startScore.folderId,
+    title: `${data.folders.find((folder) => folder.id === rootFolderId)?.name || "目录"} · 连续翻页`,
+    folderId: rootFolderId,
     pages,
     startIndex
   };
