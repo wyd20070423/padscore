@@ -1,0 +1,18 @@
+{
+  "name": "粉粉谱库",
+  "short_name": "谱库",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#fff0f7",
+  "theme_color": "#fff0f7",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

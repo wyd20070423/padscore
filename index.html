@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="粉粉谱库">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#fff0f7">
+    <title>粉粉谱库</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="stylesheet" href="styles.css?v=8">
+  </head>
+  <body>
+    <div class="floaty cat">=^..^=</div>
+    <div class="floaty bow">୨୧</div>
+    <div class="floaty candy">○-○</div>
+
+    <div id="app">
+      <aside class="sidebar" aria-label="目录">
+        <div class="brand">
+          <div>
+            <strong>粉粉谱库</strong>
+            <span id="storageStatus">本地保存中</span>
+          </div>
+          <button id="installHelpBtn" class="subtle" type="button">iPad</button>
+        </div>
+
+        <input id="searchInput" type="search" placeholder="搜索曲名 / 文件名">
+
+        <div class="sidebar-actions">
+          <button id="addFolderBtn" type="button">新目录</button>
+          <button id="importBtn" type="button">导入谱子</button>
+        </div>
+
+        <nav id="folderTree" class="folder-tree"></nav>
+
+        <div class="backup-panel">
+          <button id="backupBtn" type="button">导出备份</button>
+          <button id="restoreBtn" class="subtle" type="button">恢复备份</button>
+        </div>
+      </aside>
+
+      <main class="library">
+        <header class="library-top">
+          <button id="sidebarToggle" class="mobile-only subtle" type="button" aria-label="目录">☰</button>
+          <div>
+            <h1 id="currentTitle">未整理</h1>
+            <p id="currentPath">♡ 这个目录里的谱子可以连续翻页</p>
+          </div>
+          <div class="library-tools">
+            <button id="renameFolderBtn" class="subtle" type="button">改名</button>
+            <button id="deleteFolderBtn" class="danger subtle" type="button">删除</button>
+          </div>
+        </header>
+
+        <section id="dropZone" class="drop-zone">
+          <input id="fileInput" type="file" accept=".pdf,.jpg,.jpeg,.png,image/jpeg,image/png,application/pdf" multiple hidden>
+          <input id="restoreInput" type="file" accept=".zip,application/zip" hidden>
+          <div>
+            <strong>批量导入 PDF / 图片 ୨୧</strong>
+            <span>多张图片一起选时，会自动合成一首多页谱；目录里的旧单页也能连续翻。</span>
+          </div>
+          <button id="dropImportBtn" type="button">选择文件</button>
+        </section>
+
+        <section id="importProgress" class="import-progress hidden" aria-live="polite">
+          <div>
+            <strong id="importProgressTitle">导入中</strong>
+            <span id="importProgressDetail">准备文件</span>
+          </div>
+          <progress id="importProgressBar" value="0" max="1"></progress>
+        </section>
+
+        <section id="crumbs" class="crumbs"></section>
+        <section id="scoreGrid" class="score-grid"></section>
+      </main>
+    </div>
+
+    <section id="viewer" class="viewer hidden" aria-label="看谱">
+      <header class="viewer-bar">
+        <button id="closeViewerBtn" class="subtle" type="button">关闭</button>
+        <div class="viewer-title">
+          <strong id="viewerTitle">曲目</strong>
+          <span id="pageStatus">1 / 1</span>
+        </div>
+        <div class="viewer-actions">
+          <button id="organizeBtn" type="button">整理页面</button>
+          <button id="fitBtn" type="button">适配</button>
+        </div>
+      </header>
+
+      <div id="stage" class="stage">
+        <button id="prevPageBtn" class="page-hit left" type="button" aria-label="上一页"></button>
+        <div id="pages" class="pages"></div>
+        <button id="nextPageBtn" class="page-hit right" type="button" aria-label="下一页"></button>
+      </div>
+    </section>
+
+    <section id="organizer" class="organizer hidden" aria-label="整理页面">
+      <header class="viewer-bar">
+        <button id="closeOrganizerBtn" class="subtle" type="button">完成</button>
+        <div class="viewer-title">
+          <strong>整理页面</strong>
+          <span>可前移、后移、删除页面；目录连播模式下会整理原曲目。</span>
+        </div>
+        <button id="addMorePagesBtn" type="button">追加文件</button>
+      </header>
+      <div id="pageSorter" class="page-sorter"></div>
+    </section>
+
+    <dialog id="promptDialog">
+      <form method="dialog">
+        <h2 id="promptTitle">输入名称</h2>
+        <input id="promptInput" autocomplete="off">
+        <menu>
+          <button class="subtle" value="cancel" type="submit">取消</button>
+          <button id="promptOk" value="ok" type="submit">确定</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="helpDialog">
+      <form method="dialog">
+        <h2>iPad 使用小纸条</h2>
+        <p>用 Safari 打开后，点分享按钮，选择“添加到主屏幕”。导入后的谱子保存在 iPad 本地浏览器数据库里。</p>
+        <p>重要谱库请经常“导出备份”，保存到 iCloud Drive 或“文件”。</p>
+        <menu><button value="ok" type="submit">好喔</button></menu>
+      </form>
+    </dialog>
+
+    <script src="vendor/jszip.min.js"></script>
+    <script type="module" src="app.js?v=8"></script>
+  </body>
+</html>
