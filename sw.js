@@ -1,4 +1,4 @@
-const CACHE = "ipad-score-library-v17";
+﻿const CACHE = "ipad-score-library-v18";
 const ASSETS = [
   "./",
   "./index.html",
@@ -38,3 +38,4 @@ self.addEventListener("fetch", (event) => {
     })
   );
 });
+

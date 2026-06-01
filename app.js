@@ -384,7 +384,7 @@ async function addFolder() {
 
 async function renameFolder() {
   const folder = selectedFolder();
-  const name = await promptText("鐩綍鏀瑰悕", folder.name);
+  const name = await promptText("目录改名", folder.name);
   if (!name) return;
   folder.name = name;
   await save();
@@ -539,7 +539,7 @@ async function moveScore(scoreId) {
 
 async function renameScore(scoreId) {
   const score = data.scores.find((item) => item.id === scoreId);
-  const title = await promptText("鏇茬洰鏀瑰悕", score.title);
+  const title = await promptText("曲目改名", score.title);
   if (!title) return;
   score.title = title;
   score.updatedAt = Date.now();

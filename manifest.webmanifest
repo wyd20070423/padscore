@@ -1,7 +1,7 @@
 {
-  "name": "粉粉谱库",
-  "short_name": "谱库",
-  "start_url": "./?v=17",
+  "name": "daniscore",
+  "short_name": "daniscore",
+  "start_url": "./?v=18",
   "scope": ".",
   "display": "standalone",
   "orientation": "any",

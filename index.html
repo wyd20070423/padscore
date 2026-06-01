@@ -4,12 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="粉粉谱库">
+    <meta name="apple-mobile-web-app-title" content="daniscore">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="theme-color" content="#fff0f7">
-    <title>粉粉谱库</title>
+    <title>daniscore</title>
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=17">
+    <link rel="stylesheet" href="styles.css?v=18">
   </head>
   <body>
     <div class="floaty cat">=^..^=</div>
@@ -20,7 +20,7 @@
       <aside class="sidebar" aria-label="目录">
         <div class="brand">
           <div>
-            <strong>粉粉谱库</strong>
+            <strong>daniscore</strong>
             <span id="storageStatus">本地保存中</span>
           </div>
           <button id="installHelpBtn" class="subtle" type="button">iPad</button>
@@ -46,7 +46,7 @@
           <button id="sidebarToggle" class="mobile-only subtle" type="button" aria-label="目录">☰</button>
           <div>
             <h1 id="currentTitle">未整理</h1>
-            <p id="currentPath">♡ 这个目录里的谱子可以连续翻页</p>
+            <p id="currentPath">这个目录里的谱子可以连续翻页</p>
           </div>
           <div class="library-tools">
             <button id="renameFolderBtn" class="subtle" type="button">改名</button>
@@ -59,7 +59,7 @@
           <input id="restoreInput" type="file" accept=".zip,.json,.padscore.json,application/zip,application/json" hidden>
           <div>
             <strong>批量导入 PDF / 图片 ୨୧</strong>
-            <span>多张图片一起选时，会自动合成一首多页谱；目录里的旧单页也能连续翻。</span>
+            <span>多张图片一起选时，会自动合成一首多页谱；目录里的旧单页也能连翻。</span>
           </div>
           <button id="dropImportBtn" type="button">选择文件</button>
         </section>
@@ -102,7 +102,7 @@
         <button id="closeOrganizerBtn" class="subtle" type="button">完成</button>
         <div class="viewer-title">
           <strong>整理页面</strong>
-          <span>可前移、后移、删除页面；目录连播模式下会整理原曲目。</span>
+          <span>可前移、后移、删除页面。</span>
         </div>
         <button id="addMorePagesBtn" type="button">追加文件</button>
       </header>
@@ -124,12 +124,12 @@
       <form method="dialog">
         <h2>iPad 使用小纸条</h2>
         <p>用 Safari 打开后，点分享按钮，选择“添加到主屏幕”。导入后的谱子保存在 iPad 本地浏览器数据库里。</p>
-        <p>重要谱库请经常“导出备份”，保存到 iCloud Drive 或“文件”。</p>
+        <p>重要谱库请经常导出备份，保存到 iCloud Drive 或“文件”。</p>
         <menu><button value="ok" type="submit">好喔</button></menu>
       </form>
     </dialog>
 
-    <script src="vendor/jszip.min.js?v=17"></script>
-    <script src="app.js?v=17" defer></script>
+    <script src="vendor/jszip.min.js?v=18"></script>
+    <script src="app.js?v=18" defer></script>
   </body>
 </html>
