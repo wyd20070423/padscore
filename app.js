@@ -853,17 +853,26 @@ async function exportBackup() {
     return;
   }
   try {
-    const Zip = await ensureZipLib();
-    const zip = new Zip();
-    zip.file("library.json", JSON.stringify(data, null, 2));
     const fileIds = [...new Set(data.scores.flatMap((score) => score.pages.map((page) => page.fileId)))];
-    showImportProgress("正在打包备份", `准备 ${fileIds.length} 个谱子文件`, 0, fileIds.length || 1);
+    showImportProgress("正在生成备份", `准备 ${fileIds.length} 个谱子文件`, 0, fileIds.length || 1);
+    const files = {};
     for (const [index, fileId] of fileIds.entries()) {
-      showImportProgress("正在打包备份", `写入 ${index + 1} / ${fileIds.length}`, index, fileIds.length || 1);
-      zip.file(`files/${fileId}`, await getFileBlob(fileId));
+      showImportProgress("正在生成备份", `写入 ${index + 1} / ${fileIds.length}`, index, fileIds.length || 1);
+      const blob = await getFileBlob(fileId);
+      files[fileId] = {
+        type: blob.type || "application/octet-stream",
+        data: await blobToDataUrl(blob)
+      };
     }
-    const blob = await zip.generateAsync({ type: "blob" });
-    const fileName = `score-library-backup-${new Date().toISOString().slice(0, 10)}.zip`;
+    const backup = {
+      format: "padscore-json-backup",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      library: data,
+      files
+    };
+    const blob = new Blob([JSON.stringify(backup)], { type: "application/json" });
+    const fileName = `score-library-backup-${new Date().toISOString().slice(0, 10)}.padscore.json`;
     showImportProgress("备份已生成", "请选择保存位置", 1, 1);
     await offerBackupDownload(blob, fileName);
     setTimeout(hideImportProgress, 2400);
@@ -872,6 +881,24 @@ async function exportBackup() {
     hideImportProgress();
     alert(`导出备份失败：${error.message}`);
   }
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function dataUrlToBlob(dataUrl) {
+  const [header, base64] = dataUrl.split(",");
+  const type = header.match(/data:([^;]+)/)?.[1] || "application/octet-stream";
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+  return new Blob([bytes], { type });
 }
 
 async function offerBackupDownload(blob, fileName) {
@@ -912,24 +939,16 @@ async function restoreBackup(file) {
   }
   if (!confirm("恢复备份会覆盖当前这个网址里的本地谱库。继续吗？")) return;
   try {
-    const Zip = await ensureZipLib();
-    showImportProgress("恢复备份中", "正在读取 zip", 0, 1);
-    const zip = await Zip.loadAsync(file);
-    const libraryFile = zip.file("library.json");
-    if (!libraryFile) throw new Error("这个备份包里没有 library.json");
+    showImportProgress("恢复备份中", "正在读取备份", 0, 1);
+    const parsed = await readBackupFile(file);
+    const nextData = normalizeLibrary(parsed.library);
+    const fileIds = Object.keys(parsed.files);
 
-    const nextData = normalizeLibrary(JSON.parse(await libraryFile.async("string")));
-    const fileEntries = Object.values(zip.files).filter((item) => item.name.startsWith("files/") && !item.dir);
-    const neededFileIds = new Set(nextData.scores.flatMap((score) => score.pages.map((page) => page.fileId)));
-    const missing = [...neededFileIds].filter((fileId) => !zip.file(`files/${fileId}`));
-    if (missing.length) throw new Error(`备份包缺少 ${missing.length} 个谱子文件`);
-
-    showImportProgress("恢复备份中", "清理旧数据", 0, fileEntries.length || 1);
+    showImportProgress("恢复备份中", "清理旧数据", 0, fileIds.length || 1);
     await idbClear("files");
-    for (const [index, entry] of fileEntries.entries()) {
-      const fileId = entry.name.replace("files/", "");
-      showImportProgress("恢复备份中", `正在恢复 ${index + 1} / ${fileEntries.length}`, index, fileEntries.length);
-      await idbPut("files", await entry.async("blob"), fileId);
+    for (const [index, fileId] of fileIds.entries()) {
+      showImportProgress("恢复备份中", `正在恢复 ${index + 1} / ${fileIds.length}`, index, fileIds.length);
+      await idbPut("files", await parsed.files[fileId](), fileId);
     }
 
     data = nextData;
@@ -940,7 +959,7 @@ async function restoreBackup(file) {
     urlCache.clear();
     await save();
     render();
-    showImportProgress("恢复完成", `恢复了 ${data.folders.length} 个目录、${data.scores.length} 首谱子`, fileEntries.length, fileEntries.length || 1);
+    showImportProgress("恢复完成", `恢复了 ${data.folders.length} 个目录、${data.scores.length} 首谱子`, fileIds.length, fileIds.length || 1);
     setTimeout(hideImportProgress, 2400);
     alert(`恢复完成：${data.folders.length} 个目录，${data.scores.length} 首谱子。`);
   } catch (error) {
@@ -948,6 +967,34 @@ async function restoreBackup(file) {
     hideImportProgress();
     alert(`恢复失败：${error.message}`);
   }
+}
+
+async function readBackupFile(file) {
+  const name = file.name || "";
+  if (name.endsWith(".json") || name.endsWith(".padscore.json") || file.type === "application/json") {
+    const backup = JSON.parse(await file.text());
+    if (backup.format !== "padscore-json-backup") throw new Error("这不是 padscore JSON 备份");
+    const files = {};
+    for (const [fileId, item] of Object.entries(backup.files || {})) {
+      files[fileId] = () => dataUrlToBlob(item.data);
+    }
+    return { library: backup.library, files };
+  }
+
+  const Zip = await ensureZipLib();
+  const zip = await Zip.loadAsync(file);
+  const libraryFile = zip.file("library.json");
+  if (!libraryFile) throw new Error("这个备份包里没有 library.json");
+  const library = JSON.parse(await libraryFile.async("string"));
+  const files = {};
+  for (const entry of Object.values(zip.files).filter((item) => item.name.startsWith("files/") && !item.dir)) {
+    const fileId = entry.name.replace("files/", "");
+    files[fileId] = () => entry.async("blob");
+  }
+  const neededFileIds = new Set((library.scores || []).flatMap((score) => (score.pages || []).map((page) => page.fileId)));
+  const missing = [...neededFileIds].filter((fileId) => !files[fileId]);
+  if (missing.length) throw new Error(`备份包缺少 ${missing.length} 个谱子文件`);
+  return { library, files };
 }
 
 function normalizeLibrary(nextData) {

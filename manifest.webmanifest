@@ -1,7 +1,7 @@
 {
   "name": "粉粉谱库",
   "short_name": "谱库",
-  "start_url": "./?v=15",
+  "start_url": "./?v=16",
   "scope": ".",
   "display": "standalone",
   "orientation": "any",
